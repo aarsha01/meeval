@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Music Generation with Feedback</title>
+<style>
+    body {
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        min-height: 100vh;
+        margin: 0;
+        background-image: url('static/Stock Image_ Backgrounds_Textures.jpg');
+        background-size: cover;
+        background-position: center;
+    }
+    .container {
+        text-align: center;
+    }
+    select {
+        padding: 10px;
+        font-size: 16px;
+        border-radius: 5px;
+        /* Background color for the dropdown menu */
+        background-color: #D2B48C; /* Light pastel brown */
+    }
+    
+    option {
+        /* Background color for dropdown options */
+        background-color: #D2B48C; /* Light pastel brown */
+    }
+    
+    button {
+        margin-top: 10px;
+        margin-right: 10px;
+        padding: 10px 20px;
+        font-size: 18px;
+        border-radius: 5px;
+        background-color: #964B00; /* Brown color */
+        color: #fff;
+        border: none;
+        cursor: pointer;
+    }
+    
+    .download-button {
+        padding: 10px 20px;
+        font-size: 18px;
+        border-radius: 5px;
+        background-color: #964B00; /* Brown color */
+        color: #fff;
+        border: none;
+        cursor: pointer;
+    }
+    
+    .feedback {
+        font-size: 20px; /* Larger font size for feedback questions */
+        margin-bottom: 20px; /* Add margin below each feedback question */
+    }
+</style>
+</head>
+<body>
+    <div class="container">
+        <h1>CHOOSE YOUR ARTIST</h1>
+        <label for="musician_name">Select Musician:</label>
+        <select id="musician_name">
+            <option value="Haydn">Haydn</option>
+            <option value="Beethoven">Beethoven</option>
+            <option value="Chopin">Chopin</option>
+            <option value="Liszt">Liszt</option>
+            <option value="Chopin_Beeth">Chopin_Beeth</option>
+        </select>
+        <button onclick="generateMusic()">Generate Music</button>
+        <br>
+        <button id="downloadBtn" class="download-button" style="display:none;" onclick="downloadMusic()" download="generated_music.mid">Download</button>
+    </div>
+
+    <div id="feedbackSection" style="display:none;">
+        <h2 class="feedback">Feedback Questions</h2>
+        <label class="feedback" for="qualityInput">Rate the quality of the music (out of 5): </label>
+        <input type="number" id="qualityInput" min="1" max="5"><br><br>
+        <label class="feedback" for="creativityInput">Rate the creativity of the music (out of 5): </label>
+        <input type="number" id="creativityInput" min="1" max="5"><br><br>
+        <label class="feedback" for="enjoymentInput">Rate the overall enjoyment of the music (out of 5): </label>
+        <input type="number" id="enjoymentInput" min="1" max="5"><br><br>
+        <button id="submitFeedbackBtn" onclick="submitFeedback()">Submit Feedback</button>
+    </div>
+
+    <script>
+        function generateMusic() {
+            var selectedMusician = document.getElementById("musician_name").value;
+            console.log("Generating music for " + selectedMusician);
+            fetch('/generate_music', { method: 'POST', body: JSON.stringify({ musician: selectedMusician }) })
+            .then(response => response.json())
+            .then(data => {
+                console.log(data);
+                playGeneratedMusic(data.generated_music);
+            })
+            .catch(error => console.error('Error:', error));
+        
+            // Show feedback section
+            document.getElementById("feedbackSection").style.display = "block";
+        }
+        
+        function playGeneratedMusic(musicNotes) {
+            var generatedMusic = new Audio();  // Create a new audio element
+            generatedMusic.src = `data:audio/midi;base64,${musicNotes}`;  // Set the music data as base64 encoded MIDI
+            generatedMusic.controls = true;  // Show audio controls
+            generatedMusic.autoplay = true;  // Autoplay the music
+            generatedMusic.style.display = "none";  // Hide the audio element
+            document.body.appendChild(generatedMusic);  // Append the audio element to the document body
+        }
+        
+        function downloadMusic() {
+            var selectedMusician = document.getElementById("musician_name").value;
+            fetch('/generate_music', { method: 'POST', body: JSON.stringify({ musician: selectedMusician }) })
+            .then(response => response.json())
+            .then(data => {
+                console.log(data);
+                // Convert base64 music data to a Blob
+                var blob = new Blob([base64ToArrayBuffer(data.generated_music)], { type: 'audio/midi' });
+                // Create a download link
+                var downloadLink = document.createElement('a');
+                downloadLink.href = URL.createObjectURL(blob);
+                downloadLink.download = 'generated_music.mid'; // Specify the filename
+                downloadLink.click();
+            })
+            .catch(error => console.error('Error:', error));
+        
+            // Reset website to original state after download
+            resetWebsite();
+        }
+        
+        // Function to convert base64 to ArrayBuffer
+        function base64ToArrayBuffer(base64) {
+            var binaryString = window.atob(base64);
+            var binaryLen = binaryString.length;
+            var bytes = new Uint8Array(binaryLen);
+            for (var i = 0; i < binaryLen; i++) {
+                var ascii = binaryString.charCodeAt(i);
+                bytes[i] = ascii;
+            }
+            return bytes.buffer;
+        }
+        
+
+        function submitFeedback() {
+            var qualityRating = parseInt(document.getElementById("qualityInput").value);
+            var creativityRating = parseInt(document.getElementById("creativityInput").value);
+            var enjoymentRating = parseInt(document.getElementById("enjoymentInput").value);
+            
+            if (qualityRating < 1 || qualityRating > 5 ||
+                creativityRating < 1 || creativityRating > 5 ||
+                enjoymentRating < 1 || enjoymentRating > 5) {
+                alert("Please enter feedback ratings between 1 and 5.");
+                return;
+            }
+            
+            var averageRating = (qualityRating + creativityRating + enjoymentRating) / 3;
+            
+            var feedbackSummary = "Feedback Summary:\n";
+            feedbackSummary += "Quality: " + qualityRating + "/5\n";
+            feedbackSummary += "Creativity: " + creativityRating + "/5\n";
+            feedbackSummary += "Enjoyment: " + enjoymentRating + "/5\n";
+            feedbackSummary += "Average Rating: " + averageRating.toFixed(2) + "/5";
+            alert(feedbackSummary);
+            
+            document.getElementById("downloadBtn").style.display = "inline";
+        }
+
+        function resetWebsite() {
+            document.getElementById("musician_name").selectedIndex = 0;
+            document.getElementById("downloadBtn").style.display = "none";
+            document.getElementById("feedbackSection").style.display = "none";
+        }
+    </script>
+</body>
+</html>
